@@ -75,8 +75,9 @@ php artisan vendor:publish --tag="laravel-scanner-guard-apache-config"
 The file is only rewritten when its content changes, through a temp file renamed over the target,
 so Apache never reads a half-written list. Apache only re-reads an included file on reload: the
 `reload_command` runs after a write, never otherwise. A non-zero exit or a timeout is logged, never
-thrown. The PHP user (and your queue worker, if different) must be allowed to run it without a
-password, e.g. in `/etc/sudoers.d/scanner-guard`:
+thrown, and every sync runs it again until it succeeds (a `.reload` file next to the list marks it).
+The PHP user (and your queue worker, if different) must be allowed to run it without a password,
+e.g. in `/etc/sudoers.d/scanner-guard`:
 
 ```
 www-data ALL=NOPASSWD: /usr/sbin/apachectl graceful
