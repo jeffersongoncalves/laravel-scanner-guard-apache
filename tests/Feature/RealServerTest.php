@@ -25,7 +25,8 @@ it('blocks banned ips, and only those, on a real server', function (array $entri
         'cat /scanner-guard/server.conf >> conf/httpd.conf && httpd && sleep 1 && echo started && wget -qO /dev/null http://127.0.0.1/ && echo served']);
 
     expect(str_contains($result->output(), 'started'))->toBeTrue($result->errorOutput())
-        ->and(str_contains($result->output(), 'served'))->toBe($served);
+        ->and(str_contains($result->output(), 'served'))->toBe($served)
+        ->and(str_contains($result->errorOutput(), '403 Forbidden'))->toBe(! $served);
 })->with([
     'nothing banned' => [[], true],
     'others banned' => [[
