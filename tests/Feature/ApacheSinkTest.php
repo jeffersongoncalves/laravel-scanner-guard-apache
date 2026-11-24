@@ -78,6 +78,18 @@ it('logs instead of failing when the reload command throws (e.g. a timeout)', fu
     Log::shouldHaveReceived('error')->withArgs(fn (string $message, array $context) => str_contains($context['error'], 'timeout'));
 });
 
+it('runs a failed reload again on the next sync, until it succeeds', function () {
+    Process::fake(['*' => Process::sequence()->push(Process::result(exitCode: 1))->push(Process::result())]);
+    config(['scanner-guard-apache.reload_command' => 'sudo apachectl graceful']);
+
+    (new ApacheSink)->sync([]); // fails
+    (new ApacheSink)->sync([]); // retried
+    (new ApacheSink)->sync([]); // up to date
+
+    Process::assertRanTimes('sudo apachectl graceful', 2);
+    expect(File::glob(storage_path('app/scanner-guard/*.reload')))->toBe([]);
+});
+
 it('is driven by scanner-guard:sync-denylist', function () {
     config([
         'scanner-guard.driver' => 'http', // no database needed: bans come from the (empty) last pull

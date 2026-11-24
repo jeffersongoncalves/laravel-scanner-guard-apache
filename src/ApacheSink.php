@@ -21,18 +21,27 @@ class ApacheSink implements DenylistSink
         $path = base_path((string) config('scanner-guard-apache.path', 'storage/app/scanner-guard/apache-denylist.conf'));
         $contents = $this->contents($entries);
 
-        if (File::exists($path) && File::get($path) === $contents) {
+        // Left behind while a reload failed or never ran, so the next sync tries again.
+        $pending = $path.'.reload';
+
+        if (! File::exists($path) || File::get($path) !== $contents) {
+            File::ensureDirectoryExists(dirname($path));
+
+            if (! File::exists($pending)) {
+                File::put($pending, '');
+            }
+
+            // Temp file + rename: an Apache reload mid-write never reads a truncated file.
+            $temp = $path.'.'.bin2hex(random_bytes(4)).'.tmp';
+            File::put($temp, $contents);
+            File::move($temp, $path);
+        } elseif (! File::exists($pending)) {
             return;
         }
 
-        File::ensureDirectoryExists(dirname($path));
-
-        // Temp file + rename: an Apache reload mid-write never reads a truncated file.
-        $temp = $path.'.'.bin2hex(random_bytes(4)).'.tmp';
-        File::put($temp, $contents);
-        File::move($temp, $path);
-
-        $this->reload();
+        if ($this->reload()) {
+            File::delete($pending);
+        }
     }
 
     /**
@@ -57,12 +66,15 @@ class ApacheSink implements DenylistSink
         return "<RequireAll>\n\tRequire all granted\n".implode("\n", $lines)."\n</RequireAll>\n";
     }
 
-    protected function reload(): void
+    /**
+     * false when the command failed and must run again.
+     */
+    protected function reload(): bool
     {
         $command = config('scanner-guard-apache.reload_command');
 
         if ($command === null || $command === '') {
-            return;
+            return true;
         }
 
         try {
@@ -76,5 +88,7 @@ class ApacheSink implements DenylistSink
         if ($error !== null) {
             Log::error('scanner-guard: Apache reload command failed', ['command' => $command, 'error' => $error]);
         }
+
+        return $error === null;
     }
 }

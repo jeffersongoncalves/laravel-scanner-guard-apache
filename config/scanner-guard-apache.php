@@ -24,7 +24,8 @@ return [
     |
     | Apache only re-reads an included file on reload. Runs (e.g. "sudo
     | apachectl graceful") only when the file content changed; a non-zero exit
-    | or a timeout is logged, never thrown. Null = don't reload.
+    | or a timeout is logged, never thrown, and the next sync runs it again.
+    | Null = don't reload.
     |
     */
     'reload_command' => env('SCANNER_GUARD_APACHE_RELOAD_COMMAND'),
